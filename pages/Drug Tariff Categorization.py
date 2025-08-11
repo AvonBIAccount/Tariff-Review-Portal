@@ -9,7 +9,7 @@ import pyodbc
 
 #Get the screen image, assign to a variable and display the variable
 image = Image.open('tariff_portal_image.png')
-st.image(image, use_container_width=True)
+st.image(image, use_column_width=True)
 
 #To call any of the table in our model, store it in a session state for ease of access across the streamlit script
 provider_tariff2 = st.session_state['provider_tariff']

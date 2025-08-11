@@ -14,7 +14,7 @@ st.set_page_config(page_title= 'Provider Review Portal',page_icon='🏥',layout=
 
 #assign the image file to a variable and display it
 image = Image.open('tariff_portal_image.png')
-st.image(image, use_container_width=True)
+st.image(image, use_column_width=True)
 
 #write queries to import data from the DB and assign to a varaible as below
 # query = 'select * from [dbo].[tbl_AvonRevisedProposedStandardTariff]'
@@ -38,30 +38,30 @@ query5 = 'select * from [dbo].[tbl_CPTmappeddrugtariff]'
 #a function to connect to the DB server, run the queries above and retrieve the data
 @st.cache_data(ttl = dt.timedelta(hours=24))
 def get_data_from_sql():
-    # server = os.environ.get('server_name')
-    # database = os.environ.get('db_name')
-    # username = os.environ.get('db_username')
-    # password = os.environ.get('password')
-    # conn = pyodbc.connect(
-    #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-    #     + server
-    #     +';DATABASE='
-    #     + database
-    #     +';UID='
-    #     + username
-    #     +';PWD='
-    #     + password
-    #     )
+    server = os.environ.get('server_name')
+    database = os.environ.get('db_name')
+    username = os.environ.get('db_username')
+    password = os.environ.get('password')
     conn = pyodbc.connect(
         'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-        +st.secrets['server']
+        + server
         +';DATABASE='
-        +st.secrets['database']
+        + database
         +';UID='
-        +st.secrets['username']
+        + username
         +';PWD='
-        +st.secrets['password']
+        + password
         )
+    # conn = pyodbc.connect(
+    #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+    #     +st.secrets['server']
+    #     +';DATABASE='
+    #     +st.secrets['database']
+    #     +';UID='
+    #     +st.secrets['username']
+    #     +';PWD='
+    #     +st.secrets['password']
+    #     )
     # standard_tariff = pd.read_sql(query, conn)
     provider_tariff = pd.read_sql(query1, conn)
     provider_details = pd.read_sql(query2, conn)
