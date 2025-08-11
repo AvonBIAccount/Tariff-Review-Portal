@@ -14,7 +14,7 @@ st.set_page_config(page_title= 'Provider Review Portal',page_icon='🏥',layout=
 
 #assign the image file to a variable and display it
 image = Image.open('tariff_portal_image.png')
-st.image(image, use_column_width=True)
+st.image(image, use_container_width=True)
 
 #write queries to import data from the DB and assign to a varaible as below
 # query = 'select * from [dbo].[tbl_AvonRevisedProposedStandardTariff]'
@@ -33,44 +33,46 @@ query2 = 'select Code HospNo,\
         from [dbo].[tbl_ProviderList_stg]'
 query3 = 'select * from [dbo].[tbl_CPTCodeMaster]'
 query4 = 'select * from [dbo].[Adjusted_Proposed_Standard_Tariff]'
+query5 = 'select * from [dbo].[tbl_CPTmappeddrugtariff]'
 
 #a function to connect to the DB server, run the queries above and retrieve the data
 @st.cache_data(ttl = dt.timedelta(hours=24))
 def get_data_from_sql():
-    server = os.environ.get('server_name')
-    database = os.environ.get('db_name')
-    username = os.environ.get('db_username')
-    password = os.environ.get('password')
-    conn = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-        + server
-        +';DATABASE='
-        + database
-        +';UID='
-        + username
-        +';PWD='
-        + password
-        )
+    # server = os.environ.get('server_name')
+    # database = os.environ.get('db_name')
+    # username = os.environ.get('db_username')
+    # password = os.environ.get('password')
     # conn = pyodbc.connect(
     #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-    #     +st.secrets['server']
+    #     + server
     #     +';DATABASE='
-    #     +st.secrets['database']
+    #     + database
     #     +';UID='
-    #     +st.secrets['username']
+    #     + username
     #     +';PWD='
-    #     +st.secrets['password']
+    #     + password
     #     )
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+        +st.secrets['server']
+        +';DATABASE='
+        +st.secrets['database']
+        +';UID='
+        +st.secrets['username']
+        +';PWD='
+        +st.secrets['password']
+        )
     # standard_tariff = pd.read_sql(query, conn)
     provider_tariff = pd.read_sql(query1, conn)
     provider_details = pd.read_sql(query2, conn)
     service_details = pd.read_sql(query3,conn)
     new_tariff = pd.read_sql(query4, conn)
+    drug_tariff = pd.read_sql(query5, conn)
     conn.close()
-    return provider_tariff, provider_details, service_details, new_tariff
+    return provider_tariff, provider_details, service_details, new_tariff,drug_tariff
 
 #apply the function above and assign the imported data to variables
-provider_tariff, provider_details, service_details,new_tariff = get_data_from_sql()
+provider_tariff, provider_details, service_details,new_tariff,drug_tariff = get_data_from_sql()
 #dispay a title on the page
 # st.title('Provider Tariff Review')
 #ensure all the columns below are converted to upper case
@@ -87,6 +89,7 @@ st.session_state['provider_tariff'] = provider_tariff
 st.session_state['provider_details'] = provider_details
 st.session_state['service_details'] = service_details
 st.session_state['new_tariff'] = new_tariff
+st.session_state['drug_tariff'] = drug_tariff
 
 #add a selectbox on the sidebar to enable users select the provider tariff category
 tariff_format = st.sidebar.selectbox('Select Provider Tariff Category', options=['Mapped to CPT Codes', 'Not Mapped to CPT Codes'])
@@ -223,11 +226,11 @@ if tariff_format == 'Mapped to CPT Codes':
         
         #write a function that compares the tariff provider of each service and the criteria for moving or staying on a particular level
         #create a new column that assigns the tariff level based on the provider tariff for each service in available_df
-        available_df['TariffLevel'] = np.where(available_df['ProviderTariff'] <= available_df['Level_1']*1.15, 'LEVEL 1',
-                                                np.where(available_df['ProviderTariff'] <= available_df['Level_2']*1.15, 'LEVEL 2',
-                                                np.where(available_df['ProviderTariff'] <= available_df['Level_3']*1.15, 'LEVEL 3',
-                                                np.where(available_df['ProviderTariff'] <= available_df['Level_4']*1.15, 'LEVEL 4',
-                                                np.where(available_df['ProviderTariff'] <= available_df['Level_5']*2, 'LEVEL 5', 'BUPA LEVEL')))))
+        # available_df['TariffLevel'] = np.where(available_df['ProviderTariff'] <= available_df['Level_1']*1.15, 'LEVEL 1',
+        #                                         np.where(available_df['ProviderTariff'] <= available_df['Level_2']*1.15, 'LEVEL 2',
+        #                                         np.where(available_df['ProviderTariff'] <= available_df['Level_3']*1.15, 'LEVEL 3',
+        #                                         np.where(available_df['ProviderTariff'] <= available_df['Level_4']*1.15, 'LEVEL 4',
+        #                                         np.where(available_df['ProviderTariff'] <= available_df['Level_5']*2, 'LEVEL 5', 'BUPA LEVEL')))))
         
 
         # conditions = [(available_df['ProviderTariff'] < available_df['Level_1']),
@@ -299,17 +302,17 @@ if tariff_format == 'Mapped to CPT Codes':
         #another condition to filter the final table to be displayed based on the recommendation of the model for the provider
         #table to be displayed should contain the tariff level of the recommended level and a level below the recommended level
         if check_recommendation() == rec1:
-            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_1', 'Tariff-L1(%)', 'TariffLevel']]
+            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_1', 'Tariff-L1(%)']]
         elif check_recommendation() == rec2:
-            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_1', 'Tariff-L1(%)','Level_2', 'Tariff-L2(%)', 'TariffLevel']]
+            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_1', 'Tariff-L1(%)','Level_2', 'Tariff-L2(%)']]
         elif check_recommendation() == rec3:
-            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_2', 'Tariff-L2(%)', 'Level_3', 'Tariff-L3(%)', 'TariffLevel']]
+            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_2', 'Tariff-L2(%)', 'Level_3', 'Tariff-L3(%)']]
         elif check_recommendation() == rec4:
-            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_3', 'Tariff-L3(%)', 'Level_4', 'Tariff-L4(%)', 'TariffLevel']]
+            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_3', 'Tariff-L3(%)', 'Level_4', 'Tariff-L4(%)']]
         elif check_recommendation() == rec5:
-            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_4', 'Tariff-L4(%)', 'Level_5', 'Tariff-L5(%)', 'TariffLevel']]
+            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_4', 'Tariff-L4(%)', 'Level_5', 'Tariff-L5(%)']]
         elif check_recommendation() == rec6:
-            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_5', 'Tariff-L5(%)', 'TariffLevel']]
+            final_display_df = filtered_df[['CPTCode', 'Category', 'ProviderDescription','StandardDescription','Match_Score', 'ProviderTariff', 'Level_5', 'Tariff-L5(%)']]
 
         #calculate the average variance of the provider tariff from the standard levels based on the selected service category and frequency
         ave_var_L1 = round(filtered_df['Tariff-L1(%)'].mean(),2)

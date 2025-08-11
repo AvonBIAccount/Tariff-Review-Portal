@@ -8,7 +8,7 @@ from fuzzywuzzy import fuzz
 
 #open the image, assign to a variable and display the variable
 image = Image.open('tariff_portal_image.png')
-st.image(image, use_column_width=True)
+st.image(image, use_container_width=True)
 
 #initialise the dataframe from session_state and assign to a variable to be used in this page
 # standard_tariff = st.session_state['standard_tariff']
