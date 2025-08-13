@@ -324,7 +324,7 @@ if tariff_format == 'Mapped to CPT Codes':
         #display a title for the uploaded provider services and classification
         st.title(provider + ' Services Available on AVON STANDARD TARIFF')
         #display only certain columns based on the selected columns below
-        display_df = filtered_df[['CPTCode','Category', 'ProviderDescription','StandardDescription','Match_Score','ProviderTariff','Level_1','Tariff-L1(%)','Level_2','Tariff-L2(%)', 'Level_3','Tariff-L3(%)', 'Level_4','Tariff-L4(%)', 'Level_5','Tariff-L5(%)', 'TariffLevel']]
+        display_df = filtered_df[['CPTCode','Category', 'ProviderDescription','StandardDescription','Match_Score','ProviderTariff','Level_1','Tariff-L1(%)','Level_2','Tariff-L2(%)', 'Level_3','Tariff-L3(%)', 'Level_4','Tariff-L4(%)', 'Level_5','Tariff-L5(%)']]
         #display the final_display_df 
         st.write(final_display_df)
 
