@@ -1,21 +1,72 @@
 #import needed libraries
 import streamlit as st
 import pandas as pd
-import numpy as np
-from PIL import Image
 import datetime as dt
 from fuzzywuzzy import fuzz
+import pyodbc
+import os
 
-#open the image, assign to a variable and display the variable
-image = Image.open('tariff_portal_image.png')
-st.image(image, use_column_width=True)
+query1 = "select * from [dbo].[tbl_CurrentProviderTariff]\
+            where cptcode not like 'NHIS%'"
+query2 = 'select Code HospNo,\
+        Name ProviderName,\
+        ProviderClass,\
+        Address,\
+        State,\
+        City,\
+        PhoneNo,\
+        Email,\
+        ProviderManager,\
+        ProviderGroup\
+        from [dbo].[tbl_ProviderList_stg]'
+query3 = 'select * from [dbo].[tbl_CPTCodeMaster]'
+query4 = 'select * from [dbo].[Adjusted_Proposed_Standard_Tariff]'
 
-#initialise the dataframe from session_state and assign to a variable to be used in this page
-# standard_tariff = st.session_state['standard_tariff']
-provider_tariff = st.session_state['provider_tariff']
-provider_details = st.session_state['provider_details']
-service_details = st.session_state['service_details']
-new_tariff = st.session_state['new_tariff']
+#a function to connect to the DB server, run the queries above and retrieve the data
+@st.cache_data(ttl = dt.timedelta(hours=24))
+def get_data_from_sql():
+    server = os.environ.get('server_name')
+    database = os.environ.get('db_name')
+    username = os.environ.get('db_username')
+    password = os.environ.get('password')
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+        + server
+        +';DATABASE='
+        + database
+        +';UID='
+        + username
+        +';PWD='
+        + password
+        )
+    # conn = pyodbc.connect(
+    #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+    #     +st.secrets['server']
+    #     +';DATABASE='
+    #     +st.secrets['database']
+    #     +';UID='
+    #     +st.secrets['username']
+    #     +';PWD='
+    #     +st.secrets['password']
+    #     )
+    # standard_tariff = pd.read_sql(query, conn)
+    provider_tariff = pd.read_sql(query1, conn)
+    provider_details = pd.read_sql(query2, conn)
+    service_details = pd.read_sql(query3,conn)
+    new_tariff = pd.read_sql(query4, conn)
+    conn.close()
+    return provider_tariff, provider_details, service_details, new_tariff
+
+#apply the function above and assign the imported data to variables
+provider_tariff, provider_details, service_details,new_tariff = get_data_from_sql()
+
+#ensure all the columns below are converted to upper case
+service_details['StandardDescription'] = service_details['StandardDescription'].str.upper()
+service_details['ServiceType'] = service_details['ServiceType'].str.upper()
+service_details['CPTCode'] = service_details['CPTCode'].str.upper()
+# standard_tariff['CPTCode'] = standard_tariff['CPTCode'].str.upper()
+new_tariff['CPTCode'] = new_tariff['CPTCODE'].str.upper()
+
 
 #merge the provider_tariff dataframe with provider_details dataframe, rename the cptcode column and select required columns
 merged_provider_tariff = pd.merge(provider_tariff, provider_details, on=['HospNo'], how='inner', indicator='Exist')

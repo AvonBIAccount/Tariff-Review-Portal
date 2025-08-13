@@ -1,40 +1,89 @@
 #Import necessary libraries
 import pandas as pd
 import streamlit as st
-import numpy as np
 import datetime as dt
-from PIL import Image
-from fuzzywuzzy import fuzz, process
+from fuzzywuzzy import fuzz
 import pyodbc
+import os
 
-#Get the screen image, assign to a variable and display the variable
-image = Image.open('tariff_portal_image.png')
-st.image(image, use_column_width=True)
+# #Get the screen image, assign to a variable and display the variable
+# image = Image.open('tariff_portal_image.png')
+# st.image(image, use_column_width=True)
 
-#To call any of the table in our model, store it in a session state for ease of access across the streamlit script
-provider_tariff2 = st.session_state['provider_tariff']
-provider_details = st.session_state['provider_details']
-drug_tariff2 = st.session_state['drug_tariff']
-service_details2 = st.session_state['service_details']
+# query = 'select * from [dbo].[tbl_AvonRevisedProposedStandardTariff]'
+query1 = "select * from [dbo].[tbl_CurrentProviderTariff]\
+            where cptcode not like 'NHIS%'\
+                and ServiceCategory = 'Supply'"
+query2 = 'select Code HospNo,\
+        Name ProviderName,\
+        ProviderClass,\
+        Address,\
+        State,\
+        City,\
+        PhoneNo,\
+        Email,\
+        ProviderManager,\
+        ProviderGroup\
+        from [dbo].[tbl_ProviderList_stg]'
+query3 = 'select * from [dbo].[tbl_CPTCodeMaster]'
+query4 = 'select * from [dbo].[tbl_CPTmappeddrugtariff]'
+
+@st.cache_data(ttl = dt.timedelta(hours=24))
+def get_data_from_sql():
+    server = os.environ.get('server_name')
+    database = os.environ.get('db_name')
+    username = os.environ.get('db_username')
+    password = os.environ.get('password')
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+        + server
+        +';DATABASE='
+        + database
+        +';UID='
+        + username
+        +';PWD='
+        + password
+        )
+    # conn = pyodbc.connect(
+    #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+    #     +st.secrets['server']
+    #     +';DATABASE='
+    #     +st.secrets['database']
+    #     +';UID='
+    #     +st.secrets['username']
+    #     +';PWD='
+    #     +st.secrets['password']
+    #     )
+    # standard_tariff = pd.read_sql(query, conn)
+    provider_tariff = pd.read_sql(query1, conn)
+    provider_details = pd.read_sql(query2, conn)
+    service_details = pd.read_sql(query3,conn)
+    drug_tariff = pd.read_sql(query4, conn)
+    conn.close()
+    return provider_tariff, provider_details, service_details, drug_tariff
+
+#apply the function above and assign the imported data to variables
+provider_tariff, provider_details, service_details,drug_tariff = get_data_from_sql()
+
 
 #Rename column CPTDescription to ProvDescription
-provider_tariff2 = provider_tariff2.rename(columns={'CPTDescription': 'ProvDescription', 'cptcode': 'CPTCode'})
+provider_tariff = provider_tariff.rename(columns={'CPTDescription': 'ProvDescription', 'cptcode': 'CPTCode'})
 
 #Ensuring the CPTCode and CPTDescription columns below are converted to upper case for case sensitive joining purposes in lookup
-provider_tariff2['ProvDescription'] = provider_tariff2['ProvDescription'].str.upper()
-provider_tariff2['CPTCode'] = provider_tariff2['CPTCode'].str.upper()
-drug_tariff2['CPTCode'] = drug_tariff2['CPTCode'].str.upper()
-drug_tariff2['CPTDescription'] = drug_tariff2['CPTDescription'].str.upper()
-service_details2['StandardDescription'] = service_details2['StandardDescription'].str.upper()
+provider_tariff['ProvDescription'] = provider_tariff['ProvDescription'].str.upper()
+provider_tariff['CPTCode'] = provider_tariff['CPTCode'].str.upper()
+drug_tariff['CPTCode'] = drug_tariff['CPTCode'].str.upper()
+drug_tariff['CPTDescription'] = drug_tariff['CPTDescription'].str.upper()
+service_details['StandardDescription'] = service_details['StandardDescription'].str.upper()
 
 #Filter the provider_tariff and service_details dataframe to only supply
-provider_tariff2 = provider_tariff2[provider_tariff2['ServiceCategory'] == 'Supply']
-service_details2 = service_details2[service_details2['ServiceType'] == 'SUPPLY']
+provider_tariff = provider_tariff[provider_tariff['ServiceCategory'] == 'Supply']
+service_details = service_details[service_details['ServiceType'] == 'SUPPLY']
 
 #Merged the provider tariff and provider details dataframes and select the necessary columns needed
-merged_provider_tariff2 = pd.merge(provider_tariff2, provider_details, how='inner', on='HospNo', indicator='Exist')
+merged_provider_tariff = pd.merge(provider_tariff, provider_details, how='inner', on='HospNo', indicator='Exist')
 
-merged_provider_tariff2 = merged_provider_tariff2[['CPTCode', 'ProvDescription', 'Amount','ProviderName', 'ProviderClass', 'State', 'ProviderGroup']]
+merged_provider_tariff = merged_provider_tariff[['CPTCode', 'ProvDescription', 'Amount','ProviderName', 'ProviderClass', 'State', 'ProviderGroup']]
 
 #Get variance difference of each provider tariff from the standard level tariff
 #Function to get the percent change variance to be called when calculating
@@ -53,7 +102,7 @@ cols_tomerge = ['CPTCode', 'ProvDescription', 'Amount', 'ProviderName','Provider
 cols_tomerge2 = ['CPTCode', 'CPTDescription', 'Level_1_Unit_price', 'Level_2_Unit_price', 'Level_3_Unit_price', 'Level_4_Unit_price', 'Level_5_Unit_price']
 
 #Now, merge the two dataframes on CPTCode outside the loop for variance calculation
-merged_provider_standard_tariff2 = pd.merge(merged_provider_tariff2[cols_tomerge], drug_tariff2[cols_tomerge2], how='inner', on='CPTCode', indicator='Exist')
+merged_provider_standard_tariff2 = pd.merge(merged_provider_tariff[cols_tomerge], drug_tariff[cols_tomerge2], how='inner', on='CPTCode', indicator='Exist')
 
 #Let's get the variance difference % of each drug tariff from the 5 different standard level tariff and add as columns to the new dataframe
 merged_provider_standard_tariff2['Tariff-L1%'] =round( percent_change2(merged_provider_standard_tariff2['Amount'], merged_provider_standard_tariff2['Level_1_Unit_price']))
@@ -319,7 +368,7 @@ if select_task == 'New Tariff Review':
         tariff['CPTCode'] = tariff['CPTCode'].str.upper()
 
         #merge the provider tariff with the AVON standard tariff on CPTCode
-        available_df = pd.merge(tariff, drug_tariff2, on=['CPTCode'], how='inner', indicator='Exist')
+        available_df = pd.merge(tariff, drug_tariff, on=['CPTCode'], how='inner', indicator='Exist')
 
     
         #available_df['Exist'] = np.where(available_df.Exist == 'both', True, False)

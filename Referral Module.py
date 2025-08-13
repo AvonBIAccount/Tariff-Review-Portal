@@ -1,18 +1,16 @@
 #import libraries
 import streamlit as st
 import pandas as pd
-import numpy as np
-from PIL import Image
 import pyodbc
 import datetime as dt
 import os
 
-#set page configuration and title
-st.set_page_config(page_title= 'Provider Review Portal',page_icon='🏥',layout='wide', initial_sidebar_state='expanded')
+# #set page configuration and title
+# st.set_page_config(page_title= 'Provider Review Portal',page_icon='🏥',layout='wide', initial_sidebar_state='expanded')
 
-#assign the image file to a variable and display it
-image = Image.open('tariff_portal_image.png')
-st.image(image, use_column_width=True)
+# #assign the image file to a variable and display it
+# image = Image.open('tariff_portal_image.png')
+# st.image(image, use_column_width=True)
 
 #query to import data from the DB and assign to a varaible as below
 query = 'select * from [dbo].[tbl_ProviderReferralTariff]'
