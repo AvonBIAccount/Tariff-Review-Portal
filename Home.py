@@ -11,25 +11,25 @@ st.set_page_config(page_title='Tariff Review Portal', layout='wide', initial_sid
 image = Image.open('tariff_portal.png')
 st.image(image, use_column_width=True)
 
-# Database credentials from environment variables
+# assign the DB credentials to variables
 server = os.environ.get('server_name')
 database = os.environ.get('db_name')
 username = os.environ.get('db_username')
 password = os.environ.get('db_password')
 
-# Database connection
+# define the DB connection
 try:
     conn = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-        + server
-        +';DATABASE='
-        + database
-        +';UID='
-        + username
-        +';PWD='
-        + password
-        )
-
+            'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+            + server
+            +';DATABASE='
+            + database
+            +';UID='
+            + username
+            +';PWD='
+            + password
+            )
+    
     # conn = pyodbc.connect(
     #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
     #     +st.secrets['server']
@@ -42,7 +42,8 @@ try:
     #     )
 except pyodbc.Error as ex:
     st.error(f"Database connection failed: {ex}")
-    st.stop()
+
+
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
