@@ -19,27 +19,27 @@ password = os.environ.get('db_password')
 
 # define the DB connection
 try:
-    # conn = pyodbc.connect(
-    #         'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-    #         + server
-    #         +';DATABASE='
-    #         + database
-    #         +';UID='
-    #         + username
-    #         +';PWD='
-    #         + password
-    #         )
-    
     conn = pyodbc.connect(
-        'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-        +st.secrets['server']
-        +';DATABASE='
-        +st.secrets['database']
-        +';UID='
-        +st.secrets['username']
-        +';PWD='
-        +st.secrets['password']
-        )
+            'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+            + server
+            +';DATABASE='
+            + database
+            +';UID='
+            + username
+            +';PWD='
+            + password
+            )
+    
+    # conn = pyodbc.connect(
+    #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+    #     +st.secrets['server']
+    #     +';DATABASE='
+    #     +st.secrets['database']
+    #     +';UID='
+    #     +st.secrets['username']
+    #     +';PWD='
+    #     +st.secrets['password']
+    #     )
 except pyodbc.Error as ex:
     st.error(f"Database connection failed: {ex}")
 
