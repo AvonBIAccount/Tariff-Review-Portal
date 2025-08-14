@@ -9,7 +9,7 @@ st.set_page_config(page_title='Tariff Review Portal', layout='wide', initial_sid
 
 # Add image header
 image = Image.open('tariff_portal.png')
-st.image(image, use_column_width=True)
+st.image(image, use_container_width=True)
 
 # assign the DB credentials to variables
 server = os.environ.get('server_name')
@@ -19,27 +19,27 @@ password = os.environ.get('db_password')
 
 # define the DB connection
 try:
-    conn = pyodbc.connect(
-            'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-            + server
-            +';DATABASE='
-            + database
-            +';UID='
-            + username
-            +';PWD='
-            + password
-            )
-    
     # conn = pyodbc.connect(
-    #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
-    #     +st.secrets['server']
-    #     +';DATABASE='
-    #     +st.secrets['database']
-    #     +';UID='
-    #     +st.secrets['username']
-    #     +';PWD='
-    #     +st.secrets['password']
-    #     )
+    #         'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+    #         + server
+    #         +';DATABASE='
+    #         + database
+    #         +';UID='
+    #         + username
+    #         +';PWD='
+    #         + password
+    #         )
+    
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
+        +st.secrets['server']
+        +';DATABASE='
+        +st.secrets['database']
+        +';UID='
+        +st.secrets['username']
+        +';PWD='
+        +st.secrets['password']
+        )
 except pyodbc.Error as ex:
     st.error(f"Database connection failed: {ex}")
 

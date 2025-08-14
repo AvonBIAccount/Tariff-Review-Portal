@@ -2,7 +2,7 @@
 import pandas as pd
 import streamlit as st
 import datetime as dt
-from fuzzywuzzy import fuzz
+from rapidfuzz import fuzz
 import pyodbc
 import os
 
@@ -29,11 +29,11 @@ query3 = 'select * from [dbo].[tbl_CPTCodeMaster]'
 query4 = 'select * from [dbo].[tbl_CPTmappeddrugtariff]'
 
 @st.cache_data(ttl = dt.timedelta(hours=24))
-def get_data_from_sql():
+def get_data_from_sql(query_list):
     server = os.environ.get('server_name')
     database = os.environ.get('db_name')
     username = os.environ.get('db_username')
-    password = os.environ.get('password')
+    password = os.environ.get('db_password')
     conn = pyodbc.connect(
         'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
         + server
@@ -54,16 +54,12 @@ def get_data_from_sql():
     #     +';PWD='
     #     +st.secrets['password']
     #     )
-    # standard_tariff = pd.read_sql(query, conn)
-    provider_tariff = pd.read_sql(query1, conn)
-    provider_details = pd.read_sql(query2, conn)
-    service_details = pd.read_sql(query3,conn)
-    drug_tariff = pd.read_sql(query4, conn)
+    dfs = [pd.read_sql(q, conn) for q in query_list]
     conn.close()
-    return provider_tariff, provider_details, service_details, drug_tariff
+    return dfs
 
 #apply the function above and assign the imported data to variables
-provider_tariff, provider_details, service_details,drug_tariff = get_data_from_sql()
+provider_tariff, provider_details, service_details,drug_tariff = get_data_from_sql([query1, query2, query3, query4])
 
 
 #Rename column CPTDescription to ProvDescription
@@ -72,18 +68,21 @@ provider_tariff = provider_tariff.rename(columns={'CPTDescription': 'ProvDescrip
 #Ensuring the CPTCode and CPTDescription columns below are converted to upper case for case sensitive joining purposes in lookup
 provider_tariff['ProvDescription'] = provider_tariff['ProvDescription'].str.upper()
 provider_tariff['CPTCode'] = provider_tariff['CPTCode'].str.upper()
+
 drug_tariff['CPTCode'] = drug_tariff['CPTCode'].str.upper()
 drug_tariff['CPTDescription'] = drug_tariff['CPTDescription'].str.upper()
 service_details['StandardDescription'] = service_details['StandardDescription'].str.upper()
 
 #Filter the provider_tariff and service_details dataframe to only supply
-provider_tariff = provider_tariff[provider_tariff['ServiceCategory'] == 'Supply']
+# provider_tariff = provider_tariff[provider_tariff['ServiceCategory'] == 'Supply']
 service_details = service_details[service_details['ServiceType'] == 'SUPPLY']
 
 #Merged the provider tariff and provider details dataframes and select the necessary columns needed
 merged_provider_tariff = pd.merge(provider_tariff, provider_details, how='inner', on='HospNo', indicator='Exist')
 
 merged_provider_tariff = merged_provider_tariff[['CPTCode', 'ProvDescription', 'Amount','ProviderName', 'ProviderClass', 'State', 'ProviderGroup']]
+
+
 
 #Get variance difference of each provider tariff from the standard level tariff
 #Function to get the percent change variance to be called when calculating

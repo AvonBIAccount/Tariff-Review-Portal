@@ -2,13 +2,13 @@
 import streamlit as st
 import pandas as pd
 import datetime as dt
-from fuzzywuzzy import fuzz
+from rapidfuzz import fuzz
 import pyodbc
 import os
 
-query1 = "select * from [dbo].[tbl_CurrentProviderTariff]\
+query5 = "select * from [dbo].[tbl_CurrentProviderTariff]\
             where cptcode not like 'NHIS%'"
-query2 = 'select Code HospNo,\
+query6 = 'select Code HospNo,\
         Name ProviderName,\
         ProviderClass,\
         Address,\
@@ -19,16 +19,16 @@ query2 = 'select Code HospNo,\
         ProviderManager,\
         ProviderGroup\
         from [dbo].[tbl_ProviderList_stg]'
-query3 = 'select * from [dbo].[tbl_CPTCodeMaster]'
-query4 = 'select * from [dbo].[Adjusted_Proposed_Standard_Tariff]'
+query7 = 'select * from [dbo].[tbl_CPTCodeMaster]'
+query8 = 'select * from [dbo].[Adjusted_Proposed_Standard_Tariff]'
 
 #a function to connect to the DB server, run the queries above and retrieve the data
 @st.cache_data(ttl = dt.timedelta(hours=24))
-def get_data_from_sql():
+def get_data_from_sql(query_list):
     server = os.environ.get('server_name')
     database = os.environ.get('db_name')
     username = os.environ.get('db_username')
-    password = os.environ.get('password')
+    password = os.environ.get('db_password')
     conn = pyodbc.connect(
         'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
         + server
@@ -49,23 +49,23 @@ def get_data_from_sql():
     #     +';PWD='
     #     +st.secrets['password']
     #     )
-    # standard_tariff = pd.read_sql(query, conn)
-    provider_tariff = pd.read_sql(query1, conn)
-    provider_details = pd.read_sql(query2, conn)
-    service_details = pd.read_sql(query3,conn)
-    new_tariff = pd.read_sql(query4, conn)
+    
+    dfs = [pd.read_sql(q, conn) for q in query_list]
     conn.close()
-    return provider_tariff, provider_details, service_details, new_tariff
+    return dfs
+    # standard_tariff = pd.read_sql(query, conn)
 
 #apply the function above and assign the imported data to variables
-provider_tariff, provider_details, service_details,new_tariff = get_data_from_sql()
+provider_tariff, provider_details, service_details,new_tariff = get_data_from_sql([query5, query6, query7, query8])
 
 #ensure all the columns below are converted to upper case
 service_details['StandardDescription'] = service_details['StandardDescription'].str.upper()
 service_details['ServiceType'] = service_details['ServiceType'].str.upper()
 service_details['CPTCode'] = service_details['CPTCode'].str.upper()
 # standard_tariff['CPTCode'] = standard_tariff['CPTCode'].str.upper()
-new_tariff['CPTCode'] = new_tariff['CPTCODE'].str.upper()
+
+new_tariff.rename(columns={'CPTCODE': 'CPTCode'}, inplace=True)
+new_tariff['CPTCode'] = new_tariff['CPTCode'].str.upper()
 
 
 #merge the provider_tariff dataframe with provider_details dataframe, rename the cptcode column and select required columns
@@ -81,6 +81,7 @@ def percent_change(col1, col2):
 #function to compare the service description of the provider with our cpt description and assign a matching score.
 def compare_cpt_description(col1,col2):
     return fuzz.ratio(col1, col2)
+
 
 #columns to merge from the merged_provider_tariff
 cols_to_merge1 = ['CPTCode', 'CPTDescription', 'Amount', 'ProviderName', 'ProviderClass', 'State', 'ProviderGroup']

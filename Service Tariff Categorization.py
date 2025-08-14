@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import pyodbc
 import datetime as dt
-from fuzzywuzzy import fuzz, process
+from rapidfuzz import fuzz, process
 import os
 
 # #set page configuration and title
@@ -16,9 +16,9 @@ import os
 
 #write queries to import data from the DB and assign to a varaible as below
 # query = 'select * from [dbo].[tbl_AvonRevisedProposedStandardTariff]'
-query1 = "select * from [dbo].[tbl_CurrentProviderTariff]\
+query9 = "select * from [dbo].[tbl_CurrentProviderTariff]\
             where cptcode not like 'NHIS%'"
-query2 = 'select Code HospNo,\
+query10 = 'select Code HospNo,\
         Name ProviderName,\
         ProviderClass,\
         Address,\
@@ -29,17 +29,17 @@ query2 = 'select Code HospNo,\
         ProviderManager,\
         ProviderGroup\
         from [dbo].[tbl_ProviderList_stg]'
-query3 = 'select * from [dbo].[tbl_CPTCodeMaster]'
-query4 = 'select * from [dbo].[Adjusted_Proposed_Standard_Tariff]'
-query5 = 'select * from [dbo].[tbl_CPTmappeddrugtariff]'
+query11 = 'select * from [dbo].[tbl_CPTCodeMaster]'
+query12 = 'select * from [dbo].[Adjusted_Proposed_Standard_Tariff]'
+# query13 = 'select * from [dbo].[tbl_CPTmappeddrugtariff]'
 
 #a function to connect to the DB server, run the queries above and retrieve the data
 @st.cache_data(ttl = dt.timedelta(hours=24))
-def get_data_from_sql():
+def get_data_from_sql(query_list):
     server = os.environ.get('server_name')
     database = os.environ.get('db_name')
     username = os.environ.get('db_username')
-    password = os.environ.get('password')
+    password = os.environ.get('db_password')
     conn = pyodbc.connect(
         'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
         + server
@@ -60,17 +60,12 @@ def get_data_from_sql():
     #     +';PWD='
     #     +st.secrets['password']
     #     )
-    # standard_tariff = pd.read_sql(query, conn)
-    provider_tariff = pd.read_sql(query1, conn)
-    provider_details = pd.read_sql(query2, conn)
-    service_details = pd.read_sql(query3,conn)
-    new_tariff = pd.read_sql(query4, conn)
-    drug_tariff = pd.read_sql(query5, conn)
+    dfs = [pd.read_sql(q, conn) for q in query_list]
     conn.close()
-    return provider_tariff, provider_details, service_details, new_tariff,drug_tariff
+    return dfs
 
 #apply the function above and assign the imported data to variables
-provider_tariff, provider_details, service_details,new_tariff,drug_tariff = get_data_from_sql()
+provider_tariff, provider_details, service_details, new_tariff = get_data_from_sql([query9, query10, query11, query12])
 #dispay a title on the page
 # st.title('Provider Tariff Review')
 #ensure all the columns below are converted to upper case
@@ -79,15 +74,6 @@ service_details['ServiceType'] = service_details['ServiceType'].str.upper()
 service_details['CPTCode'] = service_details['CPTCode'].str.upper()
 # standard_tariff['CPTCode'] = standard_tariff['CPTCode'].str.upper()
 new_tariff['CPTCode'] = new_tariff['CPTCODE'].str.upper()
-
-
-#store the data in a session state to enable us reference the data from another file
-# st.session_state['standard_tariff'] = standard_tariff
-st.session_state['provider_tariff'] = provider_tariff
-st.session_state['provider_details'] = provider_details
-st.session_state['service_details'] = service_details
-st.session_state['new_tariff'] = new_tariff
-st.session_state['drug_tariff'] = drug_tariff
 
 #add a selectbox on the sidebar to enable users select the provider tariff category
 tariff_format = st.sidebar.selectbox('Select Provider Tariff Category', options=['Mapped to CPT Codes', 'Not Mapped to CPT Codes'])
@@ -110,9 +96,18 @@ def filter_df(df, selected_category, selected_status):
 
 #this is a function that uses the fuzzy library to compare the provider service description with our standard service description
 #and assign a score based on their compatibility and returns the provider description with the highest compatibility score
-def fuzzy_match(description, choices):
-            best_match, score = process.extractOne(description, choices)
-            return best_match, score
+# def fuzzy_match(description, choices):
+#             best_match, score = process.extractOne(description, choices)
+#             return best_match, score
+
+def fuzzy_match(description, choices, min_score=60):
+    best_match, score, _ = process.extractOne(
+        description, 
+        choices, 
+        score_cutoff=min_score
+    )
+    return best_match, score
+
 
 #Include an input box that takes in the provider name
 provider = st.sidebar.text_input('Type in Provider Name')
@@ -126,54 +121,64 @@ location = st.sidebar.selectbox('Provider Location*', placeholder='Select Locati
 
 #function to perform the mapping of provider services to AVON standard cpt code.
 def map_cptcode_service(serv_cat):
-    uploaded_file = st.sidebar.file_uploader('Upload a CSV file containing Provider Service Description and Tariffs', type='csv')
-    #create a dictionary to map the uploaded file headers to a preferred name according to their index
-    preffered_headers = {
+    uploaded_file = st.sidebar.file_uploader(
+        'Upload a CSV file containing Provider Service Description and Tariffs',
+        type='csv'
+    )
+    
+    # Preferred header mapping by index
+    preferred_headers = {
         0: 'Description',
         1: 'Amount'
     }
-    #set of instructions to be executed if a file is uploaded
-    if uploaded_file:
-        #read the file and assign to a variable
-        df_provider = pd.read_csv(uploaded_file, header=None, skiprows=1)
 
-        #rename the columns based on the preferred_headers disctionary using index
-        df_provider.rename(columns=preffered_headers, inplace=True)
-        #change to a string data type and convert to upper case
-        df_provider['Description'] = df_provider['Description'].astype(str)
-        df_provider['Description'] = df_provider['Description'].str.upper()
-        #create a variable for only services under CONSULTATION
+    if uploaded_file:
+        # Read file, skip first row, no header
+        df_provider = pd.read_csv(uploaded_file, header=None, skiprows=1)
+        
+        # Rename columns
+        df_provider.rename(columns=preferred_headers, inplace=True)
+        
+        # Standardize descriptions
+        df_provider['Description'] = df_provider['Description'].astype(str).str.upper().str.strip()
+        
+        # Filter services for the selected category
         selected_services = service_details[service_details['ServiceType'] == serv_cat]
-        # Create a dictionary of service descriptions and their corresponding codes
+        
+        # Create mapping dictionary
         description_to_code = {
             row['StandardDescription']: row['CPTCode']
             for _, row in selected_services.iterrows()
         }
-
-        # Perform fuzzy matching and map service codes and amounts
+        
+        # Precompute choices for RapidFuzz
+        choices_list = list(description_to_code.keys())
+        
         matched_data = []
         for _, row in df_provider.iterrows():
             description = row['Description']
-            best_match, score = fuzzy_match(description, description_to_code.keys())
+            
+            # Use RapidFuzz for best match
+            best_match, score, _ = process.extractOne(
+                description,
+                choices_list,
+                scorer=fuzz.token_sort_ratio,
+                processor=None  # Already preprocessed
+            )
             
             matched_data.append({
                 'ProviderDescription': description,
-                'CPTCode': description_to_code[best_match],
+                'CPTCode': description_to_code.get(best_match, None),
                 'Amount': row['Amount'],
-                'FuzzyScore': score,
+                'Match Score': int(score),
                 'StandardDescription': best_match
             })
-        #convert the dictionary above to a pandas dataframe
+        
+        # Convert to DataFrame
         matched_df = pd.DataFrame(matched_data)
-        #display the data
+        
+        # Display results
         st.write(matched_df)
-        #add a download button
-        st.download_button(
-                label=f'Download {provider} tariff data as Excel File',
-                data=matched_df.to_csv().encode('utf-8'),
-                file_name=f'{provider} tariff data.csv',
-                mime='text/csv',
-                )
 
 #set of instructions to be executed when 'Mapped to CPT Codes' is selected
 if tariff_format == 'Mapped to CPT Codes':

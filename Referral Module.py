@@ -21,7 +21,7 @@ def get_data_from_sql():
     server = os.environ.get('server_name')
     database = os.environ.get('db_name')
     username = os.environ.get('db_username')
-    password = os.environ.get('password')
+    password = os.environ.get('db_password')
     conn = pyodbc.connect(
         'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
         + server
@@ -32,7 +32,7 @@ def get_data_from_sql():
         +';PWD='
         + password
         )
-    # conn = pyodbc.connect(
+    # conn4 = pyodbc.connect(
     #     'DRIVER={ODBC Driver 17 for SQL Server};SERVER='
     #     +st.secrets['server']
     #     +';DATABASE='
